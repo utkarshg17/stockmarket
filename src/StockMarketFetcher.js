@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import axios from "axios";
-import "./StockMarketFetcher.css"; // Import the CSS file
+import "./StockMarketFetcher.css";
+import StockChart from "./StockChart";
 
-const API_KEY = "adf6fa403c592f828551e79ddf07bda6";
+const API_KEY = "ab48383ff42ff55b95072823c6ffa5ad";
 const BASE_URL = "http://api.marketstack.com/v1/eod";
 
 const MarketStackFetcher = () => {
@@ -89,6 +90,16 @@ const MarketStackFetcher = () => {
 
             {historicalData.length > 0 && (
                 <div>
+                    <h3>Price Trend</h3>
+                    <StockChart
+                        dates={historicalData.map((item) => item.date)}
+                        prices={historicalData.map((item) => item.close)}
+                    />
+                </div>
+            )}
+
+            {historicalData.length > 0 && (
+                <div>
                     <h3>Historical Data ({timeRange.replace("1", "Past ")})</h3>
                     <table className="stock-table">
                         <thead>
@@ -104,7 +115,7 @@ const MarketStackFetcher = () => {
                         <tbody>
                             {historicalData.map((item, index) => (
                                 <tr key={index}>
-                                    <td>{item.date}</td>
+                                    <td>{item.date.split("T")[0]}</td>
                                     <td>₹{item.open.toFixed(2)}</td>
                                     <td>₹{item.close.toFixed(2)}</td>
                                     <td>₹{item.high.toFixed(2)}</td>
