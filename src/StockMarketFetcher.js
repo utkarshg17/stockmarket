@@ -74,11 +74,12 @@ const StockMarketFetcher = () => {
                     symbols: `${symbol}.XNSE`,
                     date_from: getStartDate(),
                     date_to: new Date().toISOString().split("T")[0], // Today's date
-                    limit: 100, // Fetch up to 100 records
+                    limit: 1000
                 },
             });
 
             setHistoricalData(response.data.data); // Store historical data
+            console.log(historicalData);
         } catch (err) {
             setError("Failed to fetch historical data. Try again.");
             console.error(err);
@@ -141,7 +142,7 @@ const StockMarketFetcher = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {historicalData.slice(0, 10).map((item, index) => (
+                            {historicalData.slice(0, 1000).map((item, index) => (
                                 <tr key={index}>
                                     <td style={{ padding: "10px" }}>{item.date.split("T")[0]}</td>
                                     <td style={{ padding: "10px" }}>₹{item.open}</td>
