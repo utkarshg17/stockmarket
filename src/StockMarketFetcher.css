@@ -161,3 +161,38 @@ body {
     width: 100%;
   }
 }
+
+/* Menu Switcher */
+.menu-switcher {
+  display: flex;
+  justify-content: center;
+  background: #f8f9fa;
+  border-radius: 25px;
+  padding: 5px;
+  margin-bottom: 20px;
+}
+
+.menu-switcher button {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 10px;
+  cursor: pointer;
+  font-weight: bold;
+  color: #888;
+  transition: 0.3s;
+}
+
+.menu-switcher button.active {
+  background: #007bff; /* Orange active state */
+  color: white;
+  border-radius: 25px;
+}
+
+/* Left Pane Styling */
+.left-pane {
+  width: 300px;
+  padding: 20px;
+  background: #f0f0f0;
+  height: 100vh;
+}

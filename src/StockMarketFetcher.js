@@ -8,6 +8,8 @@ const BASE_URL = "http://api.marketstack.com/v1/eod";
 const MARKET_INDEX = "NSEI.INDX"; // Market benchmark for Beta calculation
 
 const MarketStackFetcher = () => {
+    const [activeTab, setActiveTab] = useState("stock"); // Default to Stock Analysis
+
     const [symbol, setSymbol] = useState("");
     const [historicalData, setHistoricalData] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -218,22 +220,46 @@ const MarketStackFetcher = () => {
 
             {/* LEFT PANE: Input Panel */}
             <div className="left-pane">
-                <h2>Stock Input</h2>
-                <div className="input-container">
-                    <input
-                        type="text"
-                        placeholder="Enter stock symbol (e.g., RELIANCE)"
-                        value={symbol}
-                        onChange={(e) => setSymbol(e.target.value)}
-                    />
-                    <select value={timeRange} onChange={(e) => setTimeRange(e.target.value)}>
-                        <option value="1week">Past Week</option>
-                        <option value="1month">Past Month</option>
-                        <option value="1year">Past Year</option>
-                        <option value="5year">Past 5 Years</option>
-                    </select>
-                    <button onClick={fetchData}>Fetch Historical Data</button>
+                {/* Menu Toggle */}
+                <div className="menu-switcher">
+                    <button
+                        className={activeTab === "stock" ? "active" : ""}
+                        onClick={() => setActiveTab("stock")}
+                    >
+                        Stock Analysis
+                    </button>
+                    <button
+                        className={activeTab === "correlation" ? "active" : ""}
+                        onClick={() => setActiveTab("correlation")}
+                    >
+                        Correlation Analysis
+                    </button>
                 </div>
+
+                {/* Content Based on Active Tab */}
+                {activeTab === "stock" ? (
+                    <div className="input-container">
+                        <h2>Stock Input</h2>
+                        <input
+                            type="text"
+                            placeholder="Enter stock symbol (e.g., INFY.XNSE)"
+                            value={symbol}
+                            onChange={(e) => setSymbol(e.target.value)}
+                        />
+                        <select value={timeRange} onChange={(e) => setTimeRange(e.target.value)}>
+                            <option value="1week">Past Week</option>
+                            <option value="1month">Past Month</option>
+                            <option value="1year">Past Year</option>
+                            <option value="5years">Past 5 Years</option>
+                        </select>
+                        <button onClick={fetchData}>Fetch Historical Data</button>
+                    </div>
+                ) : (
+                    <div className="input-container">
+                        <h2>Correlation Analysis</h2>
+                        <p>(Coming Soon...)</p>
+                    </div>
+                )}
             </div>
 
             {/* RIGHT PANE: Chart + Key Metrics + Table */}
