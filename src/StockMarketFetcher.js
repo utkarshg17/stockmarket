@@ -16,6 +16,8 @@ const MarketStackFetcher = () => {
 
     const [marketData, setMarketData] = useState([]);
     const [beta, setBeta] = useState(null);
+    const [volatility, setVolatility] = useState(null);
+    const [RSI, setRSI] = useState(null)
 
     const getStartDate = () => {
         const today = new Date();
@@ -50,6 +52,8 @@ const MarketStackFetcher = () => {
     useEffect(() => {
         if (marketData.length > 0 && historicalData.length > 0) {
             calculateBeta();
+            calculateVolatility(historicalData);
+            calculateRSI(historicalData);
         }
     }, [marketData, historicalData]); // Runs when `marketData` OR `historicalData` updates
 
@@ -65,6 +69,7 @@ const MarketStackFetcher = () => {
                     symbols: `${symbol}`,
                     date_from: getStartDate(),
                     date_to: new Date().toISOString().split("T")[0],
+                    limit: 2000
                 },
             });
 
@@ -75,6 +80,7 @@ const MarketStackFetcher = () => {
             }
 
             setHistoricalData(response.data.data.slice(0, 2000)); // Limit to last 10 records
+            console.log(response.data.data.slice(0, 2000))
         } catch (err) {
             setError("Failed to fetch historical data. Try again.");
             console.error(err);
@@ -92,6 +98,7 @@ const MarketStackFetcher = () => {
                     symbols: `${MARKET_INDEX}`, // Fetch NIFTY 50 Data
                     date_from: getStartDate(),
                     date_to: new Date().toISOString().split("T")[0],
+                    limit: 2000
                 },
             });
 
@@ -101,17 +108,39 @@ const MarketStackFetcher = () => {
             }
 
             setMarketData(response.data.data.slice(0, 2000)); // Oldest data first
+            console.log(response.data.data.slice(0, 2000));
         } catch (err) {
             setError("Failed to fetch market data.");
             console.error(err);
         }
     };
 
-    // Calculate Beta
     const calculateBeta = () => {
-        const stockReturns = historicalData.map((d, i, arr) => i > 0 ? (d.close - arr[i - 1].close) / arr[i - 1].close : 0).slice(1);
-        const marketReturns = marketData.map((d, i, arr) => i > 0 ? (d.close - arr[i - 1].close) / arr[i - 1].close : 0).slice(1);
+        if (!historicalData.length || !marketData.length) {
+            console.warn("Insufficient data to calculate Beta.");
+            return;
+        }
 
+        // Ensure both datasets have the same length
+        const minLength = Math.min(historicalData.length, marketData.length);
+        const stockDataTrimmed = historicalData.slice(-minLength); // Take last `minLength` entries
+        const marketDataTrimmed = marketData.slice(-minLength);
+
+        // Compute daily returns
+        const stockReturns = stockDataTrimmed.map((d, i, arr) =>
+            i > 0 ? (d.close - arr[i - 1].close) / arr[i - 1].close : 0
+        ).slice(1); // Remove first undefined return
+
+        const marketReturns = marketDataTrimmed.map((d, i, arr) =>
+            i > 0 ? (d.close - arr[i - 1].close) / arr[i - 1].close : 0
+        ).slice(1);
+
+        if (stockReturns.length !== marketReturns.length) {
+            console.warn("Data mismatch after trimming. Cannot calculate Beta.");
+            return;
+        }
+
+        // Compute mean returns
         const meanStock = stockReturns.reduce((a, b) => a + b, 0) / stockReturns.length;
         const meanMarket = marketReturns.reduce((a, b) => a + b, 0) / marketReturns.length;
 
@@ -124,6 +153,64 @@ const MarketStackFetcher = () => {
         }
 
         setBeta(covariance / marketVariance);
+    };
+
+    //calculate volatility
+    const calculateVolatility = (stockData) => {
+        if (stockData.length < 2) return 0; // Not enough data
+
+        // Step 1: Compute daily returns
+        const returns = stockData.map((d, i, arr) =>
+            i > 0 ? (d.close - arr[i - 1].close) / arr[i - 1].close : 0
+        ).slice(1); // Remove first element (undefined return)
+
+        // Step 2: Calculate Mean Return
+        const meanReturn = returns.reduce((sum, r) => sum + r, 0) / returns.length;
+
+        // Step 3: Compute Variance (Sum of squared deviations from mean)
+        const variance = returns.reduce((sum, r) => sum + (r - meanReturn) ** 2, 0) / returns.length;
+
+        // Step 4: Standard Deviation (Volatility)
+        const volatility = Math.sqrt(variance);
+
+        // Convert to percentage (Annualized if needed)
+        setVolatility((volatility * 100).toFixed(2)); // Returns as a percentage
+    };
+
+    //calculate RSI
+    const calculateRSI = (stockData, period = 14) => {
+        if (stockData.length < period) return null; // Not enough data
+
+        let gains = [];
+        let losses = [];
+
+        // Step 1: Compute daily changes
+        for (let i = 1; i < stockData.length; i++) {
+            let change = stockData[i].close - stockData[i - 1].close;
+            if (change > 0) {
+                gains.push(change);
+                losses.push(0);
+            } else {
+                gains.push(0);
+                losses.push(Math.abs(change));
+            }
+        }
+
+        // Step 2: Compute the initial Average Gain & Loss (Simple Moving Average)
+        let avgGain = gains.slice(0, period).reduce((a, b) => a + b, 0) / period;
+        let avgLoss = losses.slice(0, period).reduce((a, b) => a + b, 0) / period;
+
+        // Step 3: Compute RSI using the Smoothed Moving Average
+        for (let i = period; i < gains.length; i++) {
+            avgGain = (avgGain * (period - 1) + gains[i]) / period;
+            avgLoss = (avgLoss * (period - 1) + losses[i]) / period;
+        }
+
+        // Step 4: Compute RS & RSI
+        let RS = avgLoss === 0 ? 100 : avgGain / avgLoss; // Prevent division by zero
+        let RSI = 100 - (100 / (1 + RS));
+
+        setRSI(RSI.toFixed(2)); // Round to 2 decimal places
     };
 
     return (
@@ -171,8 +258,24 @@ const MarketStackFetcher = () => {
                 {marketData.length > 0 && (
                     <div>
                         <h3>Key Metrics</h3>
-                        <div className="key-metrics">
-                            <p>Beta Value : {beta != null ? beta.toFixed(2) : 0}</p>
+                        <div className="key-metrics-container">
+                            <div className="metric-card">
+                                <span className="metric-icon">📊</span>
+                                <p>Beta Value</p>
+                                <h4>{beta != null ? beta.toFixed(2) : "0.00"}</h4>
+                            </div>
+
+                            <div className="metric-card">
+                                <span className="metric-icon">📉</span>
+                                <p>Volatility (%)</p>
+                                <h4>{volatility != null ? volatility : "0.00"}</h4>
+                            </div>
+
+                            <div className="metric-card">
+                                <span className="metric-icon">📈</span>
+                                <p>RSI</p>
+                                <h4>{RSI != null ? RSI : "-"}</h4>
+                            </div>
                         </div>
                     </div>
                 )}
