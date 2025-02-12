@@ -78,6 +78,12 @@ body {
   margin-bottom: 20px;
 }
 
+/* Stock Chart */
+.key-metrics {
+  height: auto;
+  margin-bottom: 20px;
+}
+
 /* Table Styling */
 .stock-table {
   width: 100%;

@@ -1,6 +1,6 @@
 import React from "react";
 import { Line } from "react-chartjs-2";
-import { Chart, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from "chart.js";
+import { Chart, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, plugins } from "chart.js";
 
 // Register required Chart.js components
 Chart.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
@@ -30,6 +30,11 @@ const StockChart = ({ dates, prices }) => {
             x: { title: { display: true, text: "Date" } },
             y: { title: { display: true, text: "Stock Price (₹)" }, beginAtZero: false },
         },
+        plugins: {
+            legend: {
+                display: false
+            }
+        }
     };
 
     return (
