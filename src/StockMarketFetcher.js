@@ -27,9 +27,6 @@ const MarketStackFetcher = () => {
             case "1year":
                 startDate.setFullYear(today.getFullYear() - 1);
                 break;
-            case "5years":
-                startDate.setFullYear(today.getFullYear() - 5);
-                break;
             default:
                 startDate.setDate(today.getDate() - 7);
         }
@@ -59,7 +56,7 @@ const MarketStackFetcher = () => {
                 return;
             }
 
-            setHistoricalData(response.data.data.slice(0, 10)); // Limit to last 10 records
+            setHistoricalData(response.data.data.slice(0, 1000)); // Limit to last 10 records
         } catch (err) {
             setError("Failed to fetch historical data. Try again.");
             console.error(err);
@@ -85,7 +82,6 @@ const MarketStackFetcher = () => {
                         <option value="1week">Past Week</option>
                         <option value="1month">Past Month</option>
                         <option value="1year">Past Year</option>
-                        <option value="5years">Past 5 Years</option>
                     </select>
                     <button onClick={fetchHistoricalData}>Fetch Historical Data</button>
                 </div>
