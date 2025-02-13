@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "./StockMarketFetcher.css";
 import StockChart from "./StockChart.js";
-import { calculateBeta, calculateVolatility, calculateRSI } from "./helperFuncions.js";
+import { calculateBeta, calculateVolatility, calculateRSI } from "./helperFunctions.js";
 
 const API_KEY = "9630ecf1d09165b08ad3621ec7efb550";
 const BASE_URL = "http://api.marketstack.com/v1/eod";
