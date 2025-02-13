@@ -94,3 +94,55 @@ export const calculateRSI = (stockData, period = 14) => {
 
     return (RSI.toFixed(2)); // Round to 2 decimal places
 }
+
+export const calculateCorrelation = (stockData1, stockData2) => {
+    if (!stockData1 || !stockData2 || stockData1.length < 2 || stockData2.length < 2) {
+        console.warn("Insufficient data to calculate correlation.");
+        return null;
+    }
+
+    // Ensure both datasets have the same length
+    const minLength = Math.min(stockData1.length, stockData2.length);
+    const stock1Trimmed = stockData1.slice(-minLength);
+    const stock2Trimmed = stockData2.slice(-minLength);
+
+    // Compute daily returns
+    const returns1 = [];
+    const returns2 = [];
+
+    for (let i = 1; i < minLength; i++) {
+        returns1.push((stock1Trimmed[i].close - stock1Trimmed[i - 1].close) / stock1Trimmed[i - 1].close);
+        returns2.push((stock2Trimmed[i].close - stock2Trimmed[i - 1].close) / stock2Trimmed[i - 1].close);
+    }
+
+    // Ensure lengths match
+    if (returns1.length !== returns2.length) {
+        console.warn("Data mismatch after trimming. Cannot calculate correlation.");
+        return null;
+    }
+
+    // Compute mean returns
+    const mean1 = returns1.reduce((a, b) => a + b, 0) / returns1.length;
+    const mean2 = returns2.reduce((a, b) => a + b, 0) / returns2.length;
+
+    // Compute covariance and standard deviations
+    let covariance = 0;
+    let stdDev1 = 0;
+    let stdDev2 = 0;
+
+    for (let i = 0; i < returns1.length; i++) {
+        covariance += (returns1[i] - mean1) * (returns2[i] - mean2);
+        stdDev1 += (returns1[i] - mean1) ** 2;
+        stdDev2 += (returns2[i] - mean2) ** 2;
+    }
+
+    // Normalize by (n - 1) to prevent bias
+    covariance /= (returns1.length - 1);
+    stdDev1 = Math.sqrt(stdDev1 / (returns1.length - 1));
+    stdDev2 = Math.sqrt(stdDev2 / (returns2.length - 1));
+
+    // Compute correlation coefficient
+    const correlation = stdDev1 * stdDev2 === 0 ? null : (covariance / (stdDev1 * stdDev2)).toFixed(2);
+
+    return correlation;
+};
