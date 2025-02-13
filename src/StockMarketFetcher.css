@@ -56,6 +56,9 @@ body {
   border: 1px solid #ccc;
   border-radius: 5px;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden; 
 }
 
 .input-container button {
@@ -73,6 +76,50 @@ body {
 .stock-chart {
   height: 300px;
   margin-bottom: 20px;
+}
+
+/* Key Metrics Container */
+.key-metrics-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); /* Responsive grid */
+  gap: 15px;
+  padding: 15px;
+  background: #f8f9fa; /* Light background */
+  border-radius: 10px;
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  margin-top: 15px;
+}
+
+/* Individual Metric Card */
+.metric-card {
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease-in-out;
+}
+
+.metric-card:hover {
+  transform: translateY(-3px); /* Hover effect */
+}
+
+.metric-icon {
+  font-size: 24px;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.metric-card p {
+  font-size: 14px;
+  color: #555;
+  margin: 5px 0;
+}
+
+.metric-card h4 {
+  font-size: 18px;
+  color: #333;
+  font-weight: bold;
 }
 
 /* Table Styling */
@@ -113,4 +160,39 @@ body {
   .right-pane {
     width: 100%;
   }
+}
+
+/* Menu Switcher */
+.menu-switcher {
+  display: flex;
+  justify-content: center;
+  background: #f8f9fa;
+  border-radius: 25px;
+  padding: 5px;
+  margin-bottom: 20px;
+}
+
+.menu-switcher button {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 10px;
+  cursor: pointer;
+  font-weight: bold;
+  color: #888;
+  transition: 0.3s;
+}
+
+.menu-switcher button.active {
+  background: #007bff; /* Orange active state */
+  color: white;
+  border-radius: 25px;
+}
+
+/* Left Pane Styling */
+.left-pane {
+  width: 300px;
+  padding: 20px;
+  background: #f0f0f0;
+  height: 100vh;
 }
