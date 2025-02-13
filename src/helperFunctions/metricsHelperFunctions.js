@@ -146,3 +146,22 @@ export const calculateCorrelation = (stockData1, stockData2) => {
 
     return correlation;
 };
+
+export const calculateCorrelationReturns = (stockData1, stockData2) => {
+    if (!stockData1 || !stockData2 || stockData1.length === 0 || stockData2.length === 0) {
+        alert("Please fetch stock data first.");
+        return;
+    }
+
+    // Compute returns for scatter plot
+    const minLength = Math.min(stockData1.length, stockData2.length);
+    const returns1 = [];
+    const returns2 = [];
+
+    for (let i = 1; i < minLength; i++) {
+        returns1.push((stockData1[i].close - stockData1[i - 1].close) / stockData1[i - 1].close);
+        returns2.push((stockData2[i].close - stockData2[i - 1].close) / stockData2[i - 1].close);
+    }
+
+    return ([returns1, returns2])
+};

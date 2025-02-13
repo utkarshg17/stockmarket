@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "./StockMarketFetcher.css";
-import StockChart from "./StockChart.js";
-import { calculateBeta, calculateVolatility, calculateRSI, calculateCorrelation } from "./helperFunctions.js";
+import StockChart from "./components/StockChart.js";
+import { calculateBeta, calculateVolatility, calculateRSI, calculateCorrelation, calculateCorrelationReturns } from "./helperFunctions/metricsHelperFunctions.js";
+import CorrelationChart from "./components/CorrelationChart.js";
 
 const API_KEY = "9630ecf1d09165b08ad3621ec7efb550";
 const BASE_URL = "http://api.marketstack.com/v1/eod";
@@ -24,9 +25,10 @@ const StockMarketFetcher = () => {
 
     const [stock1Symbol, setStock1Symbol] = useState("");
     const [stock2Symbol, setStock2Symbol] = useState("");
-
     const [stock1, setStock1] = useState([]);
     const [stock2, setStock2] = useState([]);
+    const [stock1Returns, setStock1Returns] = useState([]);
+    const [stock2Returns, setStock2Returns] = useState([]);
 
     const [correlation, setCorrelation] = useState(null);
 
@@ -44,7 +46,7 @@ const StockMarketFetcher = () => {
             case "1year":
                 startDate.setFullYear(today.getFullYear() - 1);
                 break;
-            case "5year":
+            case "5years":
                 startDate.setFullYear(today.getFullYear() - 5);
                 break;
             default:
@@ -175,6 +177,9 @@ const StockMarketFetcher = () => {
     useEffect(() => {
         if (stock1.length > 0 && stock2.length > 0) {
             setCorrelation(calculateCorrelation(stock1, stock2));
+            const correlationReturns = calculateCorrelationReturns(stock1, stock2);
+            setStock1Returns(correlationReturns[0]);
+            setStock2Returns(correlationReturns[1]);
         }
     }, [stock1, stock2]); // Runs when `marketData` OR `historicalData` updates
 
@@ -314,6 +319,16 @@ const StockMarketFetcher = () => {
                                 ))}
                             </tbody>
                         </table>
+                    </div>
+                )}
+
+                {/* CORRELATION TREND GRAPH */}
+                {stock1.length > 0 && stock2.length && activeTab !== "stock" && (
+                    <div>
+                        <h3>Correlation Trend</h3>
+                        <div className="stock-chart">
+                            <CorrelationChart stockReturns1={stock1Returns} stockReturns2={stock2Returns} />
+                        </div>
                     </div>
                 )}
 
