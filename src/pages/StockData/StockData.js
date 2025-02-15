@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "./StockData.css";
 import StockChart from "../../components/StockChart.js";
-import { calculateBeta, calculateVolatility, calculateRSI, calculateCorrelation, calculateCorrelationReturns } from "../../helperFunctions/metricsHelperFunctions.js";
+import { calculateBeta, calculateVolatility, calculateRSI } from "../../helperFunctions/metricsHelperFunctions.js";
 import DropdownFromCSV from "../../components/dropdownFromCSV.js";
 
 const API_KEY = "9630ecf1d09165b08ad3621ec7efb550";
@@ -134,7 +134,7 @@ const StockData = () => {
                 {/* Content Based on Active Tab */}
                 <div className="input-container">
                     <h2>Stock Input</h2>
-                    <DropdownFromCSV csvFile={"/data/tickerData_NSE.csv"} />
+                    <DropdownFromCSV csvFile={"/data/tickerData_NSE.csv"} dropdownName={"stockDropdown"} />
                     <select value={timeRange} onChange={(e) => setTimeRange(e.target.value)}>
                         <option value="1week">Past Week</option>
                         <option value="1month">Past Month</option>
