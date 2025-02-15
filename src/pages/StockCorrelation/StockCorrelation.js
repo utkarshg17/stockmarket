@@ -3,6 +3,7 @@ import axios from "axios";
 import "./StockCorrelation.css";
 import { calculateCorrelation, calculateCorrelationReturns } from "../../helperFunctions/metricsHelperFunctions.js";
 import CorrelationChart from "../../components/CorrelationChart.js";
+import DropdownFromCSV from "../../components/dropdownFromCSV.js";
 
 const API_KEY = "9630ecf1d09165b08ad3621ec7efb550";
 const BASE_URL = "http://api.marketstack.com/v1/eod";
@@ -46,7 +47,27 @@ const StockCorrelation = () => {
     };
 
     //fetch correlation data
-    const fetchCorrelationData = async () => {
+    const fetchCorrelationData = () => {
+        // Get the value from the dropdown using its name
+        const stock1Symbol = document.getElementsByName("stock1Dropdown")[0];
+        const stock2Symbol = document.getElementsByName("stock2Dropdown")[0];
+        if (stock1Symbol && stock1Symbol.value && stock2Symbol && stock2Symbol.value) {
+            setStock1Symbol(stock1Symbol.value);
+            setStock2Symbol(stock2Symbol.value);
+        } else {
+            alert("Please select a stock.");
+        }
+    }
+
+    useEffect(() => {
+        if (stock1Symbol != "" && stock2Symbol != "") {
+            fetchStock1Data();
+            fetchStock2Data();
+        }
+    }, [timeRange, stock1Symbol, stock2Symbol])
+
+    //fetch stock 1 data
+    const fetchStock1Data = async () => {
         try {
             const response = await axios.get(BASE_URL, {
                 params: {
@@ -68,7 +89,10 @@ const StockCorrelation = () => {
             setError("Failed to fetch market data.");
             console.error(err);
         }
+    }
 
+    //fetch stock 2 data
+    const fetchStock2Data = async () => {
         try {
             const response = await axios.get(BASE_URL, {
                 params: {
@@ -108,18 +132,8 @@ const StockCorrelation = () => {
             <div className="left-pane">
                 <div className="input-container">
                     <h2>Correlation Analysis</h2>
-                    <input
-                        type="text"
-                        placeholder="Enter stock 1 symbol (e.g., INFY.XNSE)"
-                        value={stock1Symbol}
-                        onChange={(e) => setStock1Symbol(e.target.value)}
-                    />
-                    <input
-                        type="text"
-                        placeholder="Enter stock 2 symbol (e.g., RELIANCE.XNSE)"
-                        value={stock2Symbol}
-                        onChange={(e) => setStock2Symbol(e.target.value)}
-                    />
+                    <DropdownFromCSV csvFile={"/data/tickerData_NSE.csv"} dropdownName={"stock1Dropdown"} />
+                    <DropdownFromCSV csvFile={"/data/tickerData_NSE.csv"} dropdownName={"stock2Dropdown"} />
                     <select value={timeRange} onChange={(e) => setTimeRange(e.target.value)}>
                         <option value="1week">Past Week</option>
                         <option value="1month">Past Month</option>
