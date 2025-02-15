@@ -49,6 +49,7 @@ body {
   flex-direction: column;
   gap: 15px;
   width: 100%;
+  margin-top: 20px;
 }
 
 .input-container input, .input-container select, .input-container button {
