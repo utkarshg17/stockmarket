@@ -4,6 +4,7 @@ import "./StockMarketFetcher.css";
 import StockChart from "./components/StockChart.js";
 import { calculateBeta, calculateVolatility, calculateRSI, calculateCorrelation, calculateCorrelationReturns } from "./helperFunctions/metricsHelperFunctions.js";
 import CorrelationChart from "./components/CorrelationChart.js";
+import DropdownFromCSV from "./components/dropdownFromCSV.js";
 
 const API_KEY = "9630ecf1d09165b08ad3621ec7efb550";
 const BASE_URL = "http://api.marketstack.com/v1/eod";
@@ -57,9 +58,21 @@ const StockMarketFetcher = () => {
     };
 
     function fetchData() {
-        fetchHistoricalData();
-        fetchMarketData();
+        // Get the value from the dropdown using its name
+        const stockSymbol = document.getElementsByName("stockDropdown")[0];
+        if (stockSymbol && stockSymbol.value) {
+            setSymbol(stockSymbol.value); // Update the state
+        } else {
+            alert("Please select a stock.");
+        }
     }
+
+    useEffect(() => {
+        if (symbol != "") {
+            fetchHistoricalData();
+            fetchMarketData();
+        }
+    }, [symbol])
 
     useEffect(() => {
         if (marketData.length > 0 && historicalData.length > 0) {
@@ -207,12 +220,13 @@ const StockMarketFetcher = () => {
                 {activeTab === "stock" ? (
                     <div className="input-container">
                         <h2>Stock Input</h2>
-                        <input
+                        {/* <input
                             type="text"
                             placeholder="Enter stock symbol (e.g., INFY.XNSE)"
                             value={symbol}
                             onChange={(e) => setSymbol(e.target.value)}
-                        />
+                        /> */}
+                        <DropdownFromCSV csvFile={"/data/tickerData_NSE.csv"} />
                         <select value={timeRange} onChange={(e) => setTimeRange(e.target.value)}>
                             <option value="1week">Past Week</option>
                             <option value="1month">Past Month</option>
