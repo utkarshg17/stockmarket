@@ -26,7 +26,7 @@ const Predict = () => {
     const [progress, setProgress] = useState(0);
     const [trainingStatus, setTrainingStatus] = useState("");
 
-    const [next5DayPrice, setNext5DayPrice] = useState([]);
+    const [predictions, setPredictions] = useState([]);
 
     const getStartDate = () => {
         const today = new Date();
@@ -247,6 +247,9 @@ const Predict = () => {
     }
 
     async function predictStockData(historicalData) {
+        setProgress(0);
+        setPredictions([]);
+
         historicalData = [...historicalData].reverse();
         let { openingPrices, closingPrices, volumes, highPrices, lowPrices } = await fetchStockData(historicalData);
 
@@ -271,7 +274,8 @@ const Predict = () => {
         ]);
 
         let next5DaysPrices = await predictNextNDays(model, lastSequence, minOpen, maxOpen, minClose, maxClose, minVol, maxVol, minHigh, maxHigh, minLow, maxLow, 5);
-        setNext5DayPrice(next5DaysPrices);
+
+        setPredictions(next5DaysPrices);
 
         console.log("Predicted Stock Prices for Next 5 Days:", next5DaysPrices.map(p => p.toFixed(2)));
     }
@@ -316,11 +320,27 @@ const Predict = () => {
                     <div>
                         <h3>Predicted Data</h3>
                         <p>{trainingStatus}</p>
-                        {next5DayPrice.length > 0 && (
-                            next5DayPrice.forEach((element) => {
-                                <p>{element.toFixed(2)}</p>
-                            }))}
                     </div>
+                )}
+
+                {/*PREDICTED STOCK PRICES*/}
+                {predictions.length > 0 && (
+                    <table className="stock-table">
+                        <thead>
+                            <tr>
+                                <th>Day</th>
+                                <th>Predicted Closing Price (₹)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {predictions.map((price, index) => (
+                                <tr key={index}>
+                                    <td>Day {index + 1}</td>
+                                    <td>₹{price.toFixed(2)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 )}
 
                 {/* KEY METRICS SECTION */}
