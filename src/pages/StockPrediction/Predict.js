@@ -10,6 +10,7 @@ import DropdownFromCSV from "../../components/dropdownFromCSV.js";
 const API_KEY = "9630ecf1d09165b08ad3621ec7efb550";
 const BASE_URL = "http://api.marketstack.com/v1/eod";
 const MARKET_INDEX = "NSEI.INDX"; // Market benchmark for Beta calculation
+const NASDAQ_INDEX = "NDAQ"; //Market index for NASDAQ
 
 const Predict = () => {
     const [symbol, setSymbol] = useState("");
@@ -27,6 +28,8 @@ const Predict = () => {
     const [trainingStatus, setTrainingStatus] = useState("");
 
     const [predictions, setPredictions] = useState([]);
+
+    const [NASDAQ, setNASDAQ] = useState([]);
 
     const getStartDate = () => {
         const today = new Date();
@@ -71,17 +74,18 @@ const Predict = () => {
         if (symbol != "") {
             fetchHistoricalData();
             fetchMarketData();
+            fetchNASDAQData();
         }
     }, [symbol, timeRange])
 
     useEffect(() => {
-        if (marketData.length > 0 && historicalData.length > 0) {
+        if (marketData.length > 0 && historicalData.length > 0 && NASDAQ.length > 0) {
             setBeta(calculateBeta(historicalData, marketData));
             setVolatility(calculateVolatility(historicalData));
             setRSI(calculateRSI(historicalData));
 
             //predict stock data
-            predictStockData(historicalData, marketData);
+            predictStockData(historicalData, marketData, NASDAQ);
         }
     }, [marketData, historicalData]); // Runs when `marketData` OR `historicalData` updates
 
@@ -142,16 +146,42 @@ const Predict = () => {
         }
     };
 
-    async function fetchStockData(historicalData, marketData) {
+    // Fetch NASDAQ Data
+    const fetchNASDAQData = async () => {
+        try {
+            const response = await axios.get(BASE_URL, {
+                params: {
+                    access_key: API_KEY,
+                    symbols: `${NASDAQ_INDEX}`, // Fetch NIFTY 50 Data
+                    date_from: getStartDate(),
+                    date_to: getToDate(),
+                    limit: 2000
+                },
+            });
+
+            if (!response.data || !response.data.data || response.data.data.length === 0) {
+                setError("No market data found.");
+                return;
+            }
+
+            setNASDAQ(response.data.data.slice(0, 2000)); // Oldest data first
+        } catch (err) {
+            setError("Failed to fetch market data.");
+            console.error(err);
+        }
+    };
+
+    async function fetchStockData(historicalData, marketData, nasdaqData) {
         let openingPrices = historicalData.map(d => d.open);
         let closingPrices = historicalData.map(d => d.close);
         let volumes = historicalData.map(d => d.volume);
         let highPrices = historicalData.map(d => d.high);
         let lowPrices = historicalData.map(d => d.low);
         let marketCloses = marketData.map(d => d.close); // Market close prices
+        let nasdaqCloses = nasdaqData.map(d => d.close); //nasdaq data
 
         // Trim datasets to the length of the shorter one
-        let minLength = Math.min(openingPrices.length, marketCloses.length);
+        let minLength = Math.min(openingPrices.length, marketCloses.length, nasdaqCloses.length);
 
         return {
             openingPrices: openingPrices.slice(0, minLength),
@@ -159,7 +189,8 @@ const Predict = () => {
             volumes: volumes.slice(0, minLength),
             highPrices: highPrices.slice(0, minLength),
             lowPrices: lowPrices.slice(0, minLength),
-            marketCloses: marketCloses.slice(0, minLength)
+            marketCloses: marketCloses.slice(0, minLength),
+            nasdaqCloses: nasdaqCloses.slice(0, minLength)
         };
     }
 
@@ -170,7 +201,7 @@ const Predict = () => {
         return { normalized, min, max };
     }
 
-    function createSequences(openPrices, closePrices, volumes, highPrices, lowPrices, marketCloses, sequenceLength) {
+    function createSequences(openPrices, closePrices, volumes, highPrices, lowPrices, marketCloses, nasdaqCloses, sequenceLength) {
         let inputs = [];
         let labels = [];
 
@@ -183,7 +214,8 @@ const Predict = () => {
                     volumes[i + j],
                     highPrices[i + j],
                     lowPrices[i + j],
-                    marketCloses[i + j]  // ✅ Adding Market Data
+                    marketCloses[i + j],  // ✅ Adding Market Data
+                    nasdaqCloses[i + j] // adding nasdaq data
                 ]);
             }
             let label = [closePrices[i + sequenceLength]]; // Predicting next day's closing price
@@ -193,7 +225,7 @@ const Predict = () => {
         }
 
         return {
-            inputs: tf.tensor3d(inputs, [inputs.length, sequenceLength, 6]),  // Shape: (batch, sequence, features)
+            inputs: tf.tensor3d(inputs, [inputs.length, sequenceLength, 7]),  // Shape: (batch, sequence, features)
             labels: tf.tensor2d(labels, [labels.length, 1])  // Shape: (batch, 1)
         };
     }
@@ -202,7 +234,7 @@ const Predict = () => {
         const model = tf.sequential();
 
         model.add(tf.layers.lstm({
-            units: 50, returnSequences: false, inputShape: [inputs.shape[1], 6]  // Updated to use 5 features
+            units: 50, returnSequences: false, inputShape: [inputs.shape[1], 7]  // Updated to use 5 features
         }));
 
         model.add(tf.layers.dense({ units: 1 }));
@@ -234,7 +266,7 @@ const Predict = () => {
     }
 
     async function predictNextPrice(model, lastSequence, minClose, maxClose) {
-        let inputTensor = tf.tensor3d([lastSequence], [1, lastSequence.length, 6]); // ✅ Now using 6 features
+        let inputTensor = tf.tensor3d([lastSequence], [1, lastSequence.length, 7]); // ✅ Now using 6 features
         let prediction = model.predict(inputTensor);
         let predictedValue = prediction.dataSync()[0]; // Convert tensor to number
 
@@ -244,7 +276,7 @@ const Predict = () => {
         return actualPrice;
     }
 
-    async function predictNextNDays(model, lastSequence, minOpen, maxOpen, minClose, maxClose, minVol, maxVol, minHigh, maxHigh, minLow, maxLow, minMarket, maxMarket, days) {
+    async function predictNextNDays(model, lastSequence, minOpen, maxOpen, minClose, maxClose, minVol, maxVol, minHigh, maxHigh, minLow, maxLow, minMarket, maxMarket, minNASDAQ, maxNASDAQ, days) {
         let futurePredictions = [];
 
         for (let i = 0; i < days; i++) {
@@ -257,22 +289,24 @@ const Predict = () => {
             let lastDayHigh = lastSequence[lastSequence.length - 1][3];
             let lastDayLow = lastSequence[lastSequence.length - 1][4];
             let lastDayMarketClose = lastSequence[lastSequence.length - 1][5];
+            let lastDayNASDAQClose = lastSequence[lastSequence.length - 1][6]
             let normalizedPredictedClose = (predictedClose - minClose) / (maxClose - minClose);
 
-            lastSequence = [...lastSequence.slice(1), [lastDayOpen, normalizedPredictedClose, lastDayVolume, lastDayHigh, lastDayLow, lastDayMarketClose]];
+            lastSequence = [...lastSequence.slice(1), [lastDayOpen, normalizedPredictedClose, lastDayVolume, lastDayHigh, lastDayLow, lastDayMarketClose, lastDayNASDAQClose]];
         }
 
         return futurePredictions;
     }
 
-    async function predictStockData(historicalData, marketData) {
+    async function predictStockData(historicalData, marketData, nasdaqData) {
         setProgress(0);
         setPredictions([]);
 
         historicalData = [...historicalData].reverse();
         marketData = [...marketData].reverse(); // Ensure market data is in the same order
+        nasdaqData = [...nasdaqData].reverse();
 
-        let { openingPrices, closingPrices, volumes, highPrices, lowPrices, marketCloses } = await fetchStockData(historicalData, marketData);
+        let { openingPrices, closingPrices, volumes, highPrices, lowPrices, marketCloses, nasdaqCloses } = await fetchStockData(historicalData, marketData, nasdaqData);
 
         // Normalize all six features separately
         let { normalized: normalizedOpen, min: minOpen, max: maxOpen } = normalize(openingPrices);
@@ -281,9 +315,10 @@ const Predict = () => {
         let { normalized: normalizedHigh, min: minHigh, max: maxHigh } = normalize(highPrices);
         let { normalized: normalizedLow, min: minLow, max: maxLow } = normalize(lowPrices);
         let { normalized: normalizedMarket, min: minMarket, max: maxMarket } = normalize(marketCloses);
+        let { normalized: normalizedNASDAQ, min: minNASDAQ, max: maxNASDAQ } = normalize(nasdaqCloses);
 
         let seqLength = 5;
-        let { inputs, labels } = createSequences(normalizedOpen, normalizedClose, normalizedVolumes, normalizedHigh, normalizedLow, normalizedMarket, seqLength);
+        let { inputs, labels } = createSequences(normalizedOpen, normalizedClose, normalizedVolumes, normalizedHigh, normalizedLow, normalizedMarket, normalizedNASDAQ, seqLength);
 
         let model = await trainModel(inputs, labels);
 
@@ -295,10 +330,13 @@ const Predict = () => {
             normalizedVolumes[normalizedVolumes.length - seqLength + idx],
             normalizedHigh[normalizedHigh.length - seqLength + idx],
             normalizedLow[normalizedLow.length - seqLength + idx],
-            normalizedMarket[normalizedMarket.length - seqLength + idx]
+            normalizedMarket[normalizedMarket.length - seqLength + idx],
+            normalizedNASDAQ[normalizedNASDAQ.length - seqLength + idx]
         ]);
 
-        let next5DaysPrices = await predictNextNDays(model, lastSequence, minOpen, maxOpen, minClose, maxClose, minVol, maxVol, minHigh, maxHigh, minLow, maxLow, minMarket, maxMarket, 5);
+        let next5DaysPrices = await predictNextNDays(model, lastSequence, minOpen, maxOpen, minClose, maxClose, minVol, maxVol, minHigh, maxHigh, minLow, maxLow, minMarket, maxMarket, minNASDAQ, maxNASDAQ, 5);
+
+        console.log(next5DaysPrices);
 
         setPredictions(next5DaysPrices);
     }
