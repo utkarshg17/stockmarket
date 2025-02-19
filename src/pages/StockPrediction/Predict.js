@@ -10,6 +10,7 @@ import DropdownFromCSV from "../../components/dropdownFromCSV.js";
 const API_KEY = "9630ecf1d09165b08ad3621ec7efb550";
 const BASE_URL = "http://api.marketstack.com/v1/eod";
 const MARKET_INDEX = "NSEI.INDX"; // Market benchmark for Beta calculation
+const NASDAQ_INDEX = "NDAQ"; //Market index for NASDAQ
 
 const Predict = () => {
     const [symbol, setSymbol] = useState("");
@@ -27,6 +28,8 @@ const Predict = () => {
     const [trainingStatus, setTrainingStatus] = useState("");
 
     const [predictions, setPredictions] = useState([]);
+
+    const [NASDAQ, setNASDAQ] = useState([]);
 
     const getStartDate = () => {
         const today = new Date();
@@ -71,14 +74,17 @@ const Predict = () => {
         if (symbol != "") {
             fetchHistoricalData();
             fetchMarketData();
+            fetchNASDAQData();
         }
     }, [symbol, timeRange])
 
     useEffect(() => {
-        if (marketData.length > 0 && historicalData.length > 0) {
+        if (marketData.length > 0 && historicalData.length > 0 && NASDAQ.length > 0) {
             setBeta(calculateBeta(historicalData, marketData));
             setVolatility(calculateVolatility(historicalData));
             setRSI(calculateRSI(historicalData));
+
+            console.log(NASDAQ);
 
             //predict stock data
             predictStockData(historicalData, marketData);
@@ -136,6 +142,31 @@ const Predict = () => {
             }
 
             setMarketData(response.data.data.slice(0, 2000)); // Oldest data first
+        } catch (err) {
+            setError("Failed to fetch market data.");
+            console.error(err);
+        }
+    };
+
+    // Fetch NASDAQ Data
+    const fetchNASDAQData = async () => {
+        try {
+            const response = await axios.get(BASE_URL, {
+                params: {
+                    access_key: API_KEY,
+                    symbols: `${NASDAQ_INDEX}`, // Fetch NIFTY 50 Data
+                    date_from: getStartDate(),
+                    date_to: getToDate(),
+                    limit: 2000
+                },
+            });
+
+            if (!response.data || !response.data.data || response.data.data.length === 0) {
+                setError("No market data found.");
+                return;
+            }
+
+            setNASDAQ(response.data.data.slice(0, 2000)); // Oldest data first
         } catch (err) {
             setError("Failed to fetch market data.");
             console.error(err);
