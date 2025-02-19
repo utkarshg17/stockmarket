@@ -1,6 +1,6 @@
 /* global tf */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import "./Predict.css";
 import StockChart from "../../components/StockChart.js";
@@ -22,6 +22,11 @@ const Predict = () => {
     const [beta, setBeta] = useState(null);
     const [volatility, setVolatility] = useState(null);
     const [RSI, setRSI] = useState(null)
+
+    const [progress, setProgress] = useState(0);
+    const [trainingStatus, setTrainingStatus] = useState("");
+
+    const [next5DayPrice, setNext5DayPrice] = useState([]);
 
     const getStartDate = () => {
         const today = new Date();
@@ -67,7 +72,7 @@ const Predict = () => {
             setVolatility(calculateVolatility(historicalData));
             setRSI(calculateRSI(historicalData));
 
-            //predict future stock data
+            //predict stock data
             predictStockData(historicalData);
         }
     }, [marketData, historicalData]); // Runs when `marketData` OR `historicalData` updates
@@ -129,6 +134,148 @@ const Predict = () => {
         }
     };
 
+    async function fetchStockData(historicalData) {
+        let closingPrices = historicalData.map(d => d.close);
+        let volumes = historicalData.map(d => d.volume);
+        let openingPrices = historicalData.map(d => d.open);
+        let highPrices = historicalData.map(d => d.high);
+        let lowPrices = historicalData.map(d => d.low);
+
+        return { openingPrices, closingPrices, volumes, highPrices, lowPrices };
+    }
+
+    function normalize(data) {
+        let min = Math.min(...data);
+        let max = Math.max(...data);
+        let normalized = data.map(value => (value - min) / (max - min)); // Normalize between 0-1
+        return { normalized, min, max };
+    }
+
+    function createSequences(openPrices, closePrices, volumes, highPrices, lowPrices, sequenceLength) {
+        let inputs = [];
+        let labels = [];
+
+        for (let i = 0; i < closePrices.length - sequenceLength; i++) {
+            let seq = [];
+            for (let j = 0; j < sequenceLength; j++) {
+                seq.push([
+                    openPrices[i + j],
+                    closePrices[i + j],
+                    volumes[i + j],
+                    highPrices[i + j],
+                    lowPrices[i + j]
+                ]);
+            }
+            let label = [closePrices[i + sequenceLength]]; // Predicting next day's closing price
+
+            inputs.push(seq);
+            labels.push(label);
+        }
+
+        return {
+            inputs: tf.tensor3d(inputs, [inputs.length, sequenceLength, 5]),  // Shape: (batch, sequence, features)
+            labels: tf.tensor2d(labels, [labels.length, 1])  // Shape: (batch, 1)
+        };
+    }
+
+
+    async function trainModel(inputs, labels) {
+        const model = tf.sequential();
+
+        model.add(tf.layers.lstm({
+            units: 50, returnSequences: false, inputShape: [inputs.shape[1], 5]  // Updated to use 5 features
+        }));
+
+        model.add(tf.layers.dense({ units: 1 }));
+
+        model.compile({
+            optimizer: 'adam',
+            loss: 'meanSquaredError'
+        });
+
+        let epochs = 50;
+
+        // Callback to update training progress
+        const progressCallback = {
+            onEpochEnd: (epoch, logs) => {
+                let progress = Math.round(((epoch + 1) / epochs) * 100);
+                setProgress(progress); // Update progress state
+                setTrainingStatus(`Training Progress: ${progress}%`);
+            }
+        };
+
+        await model.fit(inputs, labels, {
+            epochs: 50,
+            batchSize: 8,
+            callbacks: progressCallback
+        });
+
+        setTrainingStatus("Training Complete!");
+        return model;
+    }
+
+    async function predictNextPrice(model, lastSequence, minClose, maxClose) {
+        let inputTensor = tf.tensor3d([lastSequence], [1, lastSequence.length, 5]); // ✅ Using 5 features
+        let prediction = model.predict(inputTensor);
+        let predictedValue = prediction.dataSync()[0]; // Convert tensor to number
+
+        // Denormalize closing price
+        let actualPrice = (predictedValue * (maxClose - minClose)) + minClose;
+
+        return actualPrice;
+    }
+
+
+    async function predictNextNDays(model, lastSequence, minOpen, maxOpen, minClose, maxClose, minVol, maxVol, minHigh, maxHigh, minLow, maxLow, days) {
+        let futurePredictions = [];
+
+        for (let i = 0; i < days; i++) {
+            let predictedClose = await predictNextPrice(model, lastSequence, minClose, maxClose);
+            futurePredictions.push(predictedClose);
+
+            // Update sequence: Remove first entry, append new prediction
+            let lastDayOpen = lastSequence[lastSequence.length - 1][0];  // Use last day's opening price (normalized)
+            let lastDayVolume = lastSequence[lastSequence.length - 1][2]; // Use last day's volume (normalized)
+            let lastDayHigh = lastSequence[lastSequence.length - 1][3]; // Use last day's high (normalized)
+            let lastDayLow = lastSequence[lastSequence.length - 1][4]; // Use last day's low (normalized)
+            let normalizedPredictedClose = (predictedClose - minClose) / (maxClose - minClose);
+
+            lastSequence = [...lastSequence.slice(1), [lastDayOpen, normalizedPredictedClose, lastDayVolume, lastDayHigh, lastDayLow]];
+        }
+
+        return futurePredictions;
+    }
+
+    async function predictStockData(historicalData) {
+        historicalData = [...historicalData].reverse();
+        let { openingPrices, closingPrices, volumes, highPrices, lowPrices } = await fetchStockData(historicalData);
+
+        // Normalize all five features separately
+        let { normalized: normalizedOpen, min: minOpen, max: maxOpen } = normalize(openingPrices);
+        let { normalized: normalizedClose, min: minClose, max: maxClose } = normalize(closingPrices);
+        let { normalized: normalizedVolumes, min: minVol, max: maxVol } = normalize(volumes);
+        let { normalized: normalizedHigh, min: minHigh, max: maxHigh } = normalize(highPrices);
+        let { normalized: normalizedLow, min: minLow, max: maxLow } = normalize(lowPrices);
+
+        let seqLength = 3; // Use last 3 days to predict the next day
+        let { inputs, labels } = createSequences(normalizedOpen, normalizedClose, normalizedVolumes, normalizedHigh, normalizedLow, seqLength);
+
+        let model = await trainModel(inputs, labels);
+
+        let lastSequence = normalizedClose.slice(-seqLength).map((val, idx) => [
+            normalizedOpen[normalizedOpen.length - seqLength + idx],
+            val,
+            normalizedVolumes[normalizedVolumes.length - seqLength + idx],
+            normalizedHigh[normalizedHigh.length - seqLength + idx],
+            normalizedLow[normalizedLow.length - seqLength + idx]
+        ]);
+
+        let next5DaysPrices = await predictNextNDays(model, lastSequence, minOpen, maxOpen, minClose, maxClose, minVol, maxVol, minHigh, maxHigh, minLow, maxLow, 5);
+        setNext5DayPrice(next5DaysPrices);
+
+        console.log("Predicted Stock Prices for Next 5 Days:", next5DaysPrices.map(p => p.toFixed(2)));
+    }
+
     return (
         <div className="main-container">
             {/* LEFT PANE: Input Panel */}
@@ -161,6 +308,18 @@ const Predict = () => {
                                 prices={historicalData.map((item) => item.close)}
                             />
                         </div>
+                    </div>
+                )}
+
+                {/*PREDICTED DATA*/}
+                {historicalData.length > 0 && (
+                    <div>
+                        <h3>Predicted Data</h3>
+                        <p>{trainingStatus}</p>
+                        {next5DayPrice.length > 0 && (
+                            next5DayPrice.forEach((element) => {
+                                <p>{element.toFixed(2)}</p>
+                            }))}
                     </div>
                 )}
 
@@ -226,100 +385,3 @@ const Predict = () => {
 };
 
 export default Predict;
-
-async function fetchStockData(historicalData) {
-    let closingPrices = historicalData.map(d => d.close);
-    return closingPrices;
-}
-
-function normalize(data) {
-    let min = Math.min(...data);
-    let max = Math.max(...data);
-    let normalized = data.map(value => (value - min) / (max - min)); // Scaling between 0 and 1
-    return { normalized, min, max }; // Return min and max for denormalization
-}
-
-function createSequences(data, sequenceLength) {
-    let inputs = [];
-    let labels = [];
-
-    for (let i = 0; i < data.length - sequenceLength; i++) {
-        let seq = data.slice(i, i + sequenceLength).map(x => [x]); // Convert to [[x1], [x2], ...]
-        let label = [data[i + sequenceLength]]; // Ensure label is wrapped as [value]
-
-        inputs.push(seq);  // Now inputs is a 3D array
-        labels.push(label); // Labels stay 2D
-    }
-
-    // Convert arrays into tensors
-    return {
-        inputs: tf.tensor3d(inputs, [inputs.length, sequenceLength, 1]),  // Shape: (batch, sequence, features)
-        labels: tf.tensor2d(labels, [labels.length, 1])  // Shape: (batch, 1)
-    };
-}
-
-async function trainModel(inputs, labels) {
-    const model = tf.sequential();
-
-    model.add(tf.layers.lstm({
-        units: 50, returnSequences: false, inputShape: [inputs.shape[1], 1]
-    }));
-
-    model.add(tf.layers.dense({ units: 1 }));
-
-    model.compile({
-        optimizer: 'adam',
-        loss: 'meanSquaredError'
-    });
-
-    await model.fit(inputs, labels, {
-        epochs: 50,
-        batchSize: 8
-    });
-
-    return model;
-}
-
-async function predictNextPrice(model, lastSequence, min, max) {
-    let inputTensor = tf.tensor3d([lastSequence.map(x => [x])], [1, lastSequence.length, 1]); // ✅ Fixed
-    let prediction = model.predict(inputTensor);
-    let predictedValue = prediction.dataSync()[0]; // Convert tensor to number
-
-    // Denormalize
-    let actualPrice = (predictedValue * (max - min)) + min;
-
-    return actualPrice;
-}
-
-async function predictNextNDays(model, lastSequence, min, max, days) {
-    let futurePredictions = [];
-
-    for (let i = 0; i < days; i++) {
-        let predictedPrice = await predictNextPrice(model, lastSequence, min, max);
-        futurePredictions.push(predictedPrice);
-
-        // Update sequence: remove first value, append new prediction
-        lastSequence = [...lastSequence.slice(1), (predictedPrice - min) / (max - min)];
-    }
-
-    return futurePredictions;
-}
-
-async function predictStockData(historicalData) {
-    let rawData = await fetchStockData(historicalData);
-    let { normalized, min, max } = normalize(rawData); // Get min and max for denormalization
-
-    let seqLength = 3; // Use last 3 days to predict the next day
-    let { inputs, labels } = createSequences(normalized, seqLength);
-
-    let model = await trainModel(inputs, labels);
-
-    let lastSequence = normalized.slice(-seqLength); // Get the last seq for prediction
-    let next5DaysPrices = await predictNextNDays(model, lastSequence, min, max, 5);
-
-    console.log("Predicted Stock Prices for Next 5 Days:", next5DaysPrices.map(p => p.toFixed(2)));
-}
-
-
-
-

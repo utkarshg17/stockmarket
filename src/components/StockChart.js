@@ -8,13 +8,14 @@ Chart.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Too
 const StockChart = ({ dates, prices }) => {
     // Reverse the arrays so oldest date appears first
     const reversedDates = [...dates].reverse();
+    const reversedPrices = [...prices].reverse();
 
     const chartData = {
         labels: reversedDates, // Dates (X-Axis)
         datasets: [
             {
                 label: "Stock Price (₹)",
-                data: prices, // Prices (Y-Axis)
+                data: reversedPrices, // Prices (Y-Axis)
                 borderColor: "#007bff",
                 backgroundColor: "rgba(0, 123, 255, 0.2)",
                 borderWidth: 2,
