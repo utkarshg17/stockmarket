@@ -62,7 +62,7 @@ const Predict = () => {
     const getToDate = () => {
         let toDate = new Date();
         const todaysDate = new Date();
-        toDate.setDate(todaysDate.getDate() - 6);
+        toDate.setDate(todaysDate.getDate());
 
         return toDate.toISOString().split("T")[0];
     }
@@ -282,10 +282,12 @@ const Predict = () => {
         let { normalized: normalizedLow, min: minLow, max: maxLow } = normalize(lowPrices);
         let { normalized: normalizedMarket, min: minMarket, max: maxMarket } = normalize(marketCloses);
 
-        let seqLength = 3;
+        let seqLength = 5;
         let { inputs, labels } = createSequences(normalizedOpen, normalizedClose, normalizedVolumes, normalizedHigh, normalizedLow, normalizedMarket, seqLength);
 
         let model = await trainModel(inputs, labels);
+
+        extractFeatureWeights(model);
 
         let lastSequence = normalizedClose.slice(-seqLength).map((val, idx) => [
             normalizedOpen[normalizedOpen.length - seqLength + idx],
@@ -299,8 +301,19 @@ const Predict = () => {
         let next5DaysPrices = await predictNextNDays(model, lastSequence, minOpen, maxOpen, minClose, maxClose, minVol, maxVol, minHigh, maxHigh, minLow, maxLow, minMarket, maxMarket, 5);
 
         setPredictions(next5DaysPrices);
+    }
 
-        console.log("Predicted Stock Prices for Next 5 Days:", next5DaysPrices.map(p => p.toFixed(2)));
+    function extractFeatureWeights(model) {
+        let lstmWeights = model.layers[0].getWeights()[0];  // LSTM weight matrix
+        let weightsArray = lstmWeights.arraySync();  // Convert to JS array
+
+        let featureImportance = weightsArray.map((weights, index) => ({
+            feature: `Feature_${index}`,  // Feature index
+            importance: Math.abs(weights.reduce((sum, w) => sum + Math.abs(w), 0))  // Sum of absolute weights
+        }));
+
+        console.log("Feature Importance based on Weights:", featureImportance);
+        return featureImportance;
     }
 
     return (
