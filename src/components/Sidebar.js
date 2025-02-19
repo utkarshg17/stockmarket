@@ -23,7 +23,7 @@ const Sidebar = () => {
                 <ul className="menu-list">
                     <li><Link to="/stockData" onClick={toggleSidebar}>Stock Data</Link></li>
                     <li><Link to="/stockCorrelation" onClick={toggleSidebar}>Stock Correlation</Link></li>
-                    <li><Link to="/stockPrediction" onClick={toggleSidebar}>Stock Precition</Link></li>
+                    <li><Link to="/stockPrediction" onClick={toggleSidebar}>Stock Prediction</Link></li>
                 </ul>
             </div>
 

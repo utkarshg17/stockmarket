@@ -66,6 +66,8 @@ const Predict = () => {
             setBeta(calculateBeta(historicalData, marketData));
             setVolatility(calculateVolatility(historicalData));
             setRSI(calculateRSI(historicalData));
+
+            //predict future stock data
             predictStockData(historicalData);
         }
     }, [marketData, historicalData]); // Runs when `marketData` OR `historicalData` updates
@@ -133,7 +135,7 @@ const Predict = () => {
             <div className="left-pane">
                 {/* Content Based on Active Tab */}
                 <div className="input-container">
-                    <h2>Stock Input</h2>
+                    <h2>Stock Predictor</h2>
                     <DropdownFromCSV csvFile={"/data/tickerData_NSE.csv"} dropdownName={"stockDropdown"} />
                     <select value={timeRange} onChange={(e) => setTimeRange(e.target.value)}>
                         <option value="3months">Past 3 Months</option>
@@ -227,8 +229,6 @@ export default Predict;
 
 async function fetchStockData(historicalData) {
     let closingPrices = historicalData.map(d => d.close);
-
-    console.log(closingPrices);
     return closingPrices;
 }
 
@@ -291,20 +291,35 @@ async function predictNextPrice(model, lastSequence, min, max) {
     return actualPrice;
 }
 
+async function predictNextNDays(model, lastSequence, min, max, days) {
+    let futurePredictions = [];
+
+    for (let i = 0; i < days; i++) {
+        let predictedPrice = await predictNextPrice(model, lastSequence, min, max);
+        futurePredictions.push(predictedPrice);
+
+        // Update sequence: remove first value, append new prediction
+        lastSequence = [...lastSequence.slice(1), (predictedPrice - min) / (max - min)];
+    }
+
+    return futurePredictions;
+}
+
 async function predictStockData(historicalData) {
     let rawData = await fetchStockData(historicalData);
     let { normalized, min, max } = normalize(rawData); // Get min and max for denormalization
 
-    let seqLength = 4; // Use last 3 days to predict the next day
+    let seqLength = 3; // Use last 3 days to predict the next day
     let { inputs, labels } = createSequences(normalized, seqLength);
 
     let model = await trainModel(inputs, labels);
 
     let lastSequence = normalized.slice(-seqLength); // Get the last seq for prediction
-    let nextPrice = await predictNextPrice(model, lastSequence, min, max);
+    let next5DaysPrices = await predictNextNDays(model, lastSequence, min, max, 5);
 
-    console.log("Predicted Next Stock Price (Actual):", nextPrice.toFixed(2));
+    console.log("Predicted Stock Prices for Next 5 Days:", next5DaysPrices.map(p => p.toFixed(2)));
 }
+
 
 
 
