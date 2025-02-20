@@ -1,13 +1,11 @@
-import React, { useState, useEffect, useCallback } from "react";
-import axios from "axios";
+import React, { useState, useEffect } from "react";
 import "./Predict.css";
 import StockChart from "../../components/StockChart.js";
 import { calculateBeta, calculateVolatility, calculateRSI } from "../../helperFunctions/metricsHelperFunctions.js";
 import DropdownFromCSV from "../../components/dropdownFromCSV.js";
 import { predictStockData } from "../../helperFunctions/predictionHelperFunctions.js";
+import { fetchIndexData, fetchStockData } from "../../helperFunctions/fetchingHelperFunctions.js";
 
-const API_KEY = "9630ecf1d09165b08ad3621ec7efb550";
-const BASE_URL = "http://api.marketstack.com/v1/eod";
 const MARKET_INDEX = "NSEI.INDX"; // Market benchmark for Beta calculation
 const NASDAQ_INDEX = "NDAQ"; //Market index for NASDAQ
 
@@ -77,9 +75,9 @@ const Predict = () => {
 
     useEffect(() => {
         if (symbol != "") {
-            fetchHistoricalData();
-            fetchMarketData();
-            fetchNASDAQData();
+            fetchStockData(setLoading, setError, symbol, getStartDate(), getToDate(), setHistoricalData);
+            fetchIndexData(MARKET_INDEX, getStartDate(), getToDate(), setError, setMarketData);
+            fetchIndexData(NASDAQ_INDEX, getStartDate(), getToDate(), setError, setNASDAQ);
         }
     }, [symbol, timeRange])
 
@@ -93,88 +91,6 @@ const Predict = () => {
             predictStockData(setProgress, setPredictions, setTrainingStatus, historicalData, marketData, NASDAQ);
         }
     }, [marketData, historicalData]); // Runs when `marketData` OR `historicalData` updates
-
-    //fetch historical data for stock
-    const fetchHistoricalData = async () => {
-        if (!symbol) return alert("Enter a stock symbol!");
-        setLoading(true);
-        setError(null);
-
-        try {
-            const response = await axios.get(BASE_URL, {
-                params: {
-                    access_key: API_KEY,
-                    symbols: `${symbol}`,
-                    date_from: getStartDate(),
-                    date_to: getToDate(),
-                    limit: 2000
-                },
-            });
-
-            if (!response.data || !response.data.data || response.data.data.length === 0) {
-                setError("No data found. Please try another stock.");
-                setLoading(false);
-                return;
-            }
-
-            setHistoricalData(response.data.data.slice(0, 2000)); // Limit to last 10 records
-        } catch (err) {
-            setError("Failed to fetch historical data. Try again.");
-            console.error(err);
-        }
-
-        setLoading(false);
-    };
-
-    // Fetch Market Index Data
-    const fetchMarketData = async () => {
-        try {
-            const response = await axios.get(BASE_URL, {
-                params: {
-                    access_key: API_KEY,
-                    symbols: `${MARKET_INDEX}`, // Fetch NIFTY 50 Data
-                    date_from: getStartDate(),
-                    date_to: getToDate(),
-                    limit: 2000
-                },
-            });
-
-            if (!response.data || !response.data.data || response.data.data.length === 0) {
-                setError("No market data found.");
-                return;
-            }
-
-            setMarketData(response.data.data.slice(0, 2000)); // Oldest data first
-        } catch (err) {
-            setError("Failed to fetch market data.");
-            console.error(err);
-        }
-    };
-
-    // Fetch NASDAQ Data
-    const fetchNASDAQData = async () => {
-        try {
-            const response = await axios.get(BASE_URL, {
-                params: {
-                    access_key: API_KEY,
-                    symbols: `${NASDAQ_INDEX}`, // Fetch NIFTY 50 Data
-                    date_from: getStartDate(),
-                    date_to: getToDate(),
-                    limit: 2000
-                },
-            });
-
-            if (!response.data || !response.data.data || response.data.data.length === 0) {
-                setError("No market data found.");
-                return;
-            }
-
-            setNASDAQ(response.data.data.slice(0, 2000)); // Oldest data first
-        } catch (err) {
-            setError("Failed to fetch market data.");
-            console.error(err);
-        }
-    };
 
     return (
         <div className="main-container">
