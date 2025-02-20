@@ -39,14 +39,20 @@ const Predict = () => {
             case "3months":
                 startDate.setMonth(today.getMonth() - 3);
                 break;
+            case "6months":
+                startDate.setMonth(today.getMonth() - 6);
+                break;
             case "1year":
                 startDate.setFullYear(today.getFullYear() - 1);
                 break;
             case "5years":
                 startDate.setFullYear(today.getFullYear() - 5);
                 break;
+            case "10years":
+                startDate.setFullYear(today.getFullYear() - 10);
+                break;
             default:
-                startDate.setDate(today.getDate() - 7);
+                startDate.setDate(today.getMonth() - 3);
         }
 
         return startDate.toISOString().split("T")[0];
@@ -65,7 +71,7 @@ const Predict = () => {
     const getToDate = () => {
         let toDate = new Date();
         const todaysDate = new Date();
-        toDate.setDate(todaysDate.getDate());
+        toDate.setDate(todaysDate.getDate() - 10);
 
         return toDate.toISOString().split("T")[0];
     }
@@ -334,11 +340,11 @@ const Predict = () => {
             normalizedNASDAQ[normalizedNASDAQ.length - seqLength + idx]
         ]);
 
-        let next5DaysPrices = await predictNextNDays(model, lastSequence, minOpen, maxOpen, minClose, maxClose, minVol, maxVol, minHigh, maxHigh, minLow, maxLow, minMarket, maxMarket, minNASDAQ, maxNASDAQ, 5);
+        let nextNDayPrices = await predictNextNDays(model, lastSequence, minOpen, maxOpen, minClose, maxClose, minVol, maxVol, minHigh, maxHigh, minLow, maxLow, minMarket, maxMarket, minNASDAQ, maxNASDAQ, 10);
 
-        console.log(next5DaysPrices);
+        console.log(nextNDayPrices);
 
-        setPredictions(next5DaysPrices);
+        setPredictions(nextNDayPrices);
     }
 
     function extractFeatureWeights(model) {
@@ -364,8 +370,10 @@ const Predict = () => {
                     <DropdownFromCSV csvFile={"/data/tickerData_NSE.csv"} dropdownName={"stockDropdown"} />
                     <select value={timeRange} onChange={(e) => setTimeRange(e.target.value)}>
                         <option value="3months">Past 3 Months</option>
+                        <option value="6months">Past 6 Months</option>
                         <option value="1year">Past Year</option>
                         <option value="5years">Past 5 Years</option>
+                        <option value="10years">Past 10 Years</option>
                     </select>
                     <button onClick={fetchData}>Fetch Historical Data</button>
                 </div>
