@@ -1,6 +1,8 @@
 /* global tf */
 
-export async function predictStockData(setProgress, setPredictions, setTrainingStatus, historicalData, marketData, nasdaqData) {
+export async function predictStockData(setProgress, setPredictions, setTrainingStatus, historicalData, marketData, nasdaqData, predictionTimeline) {
+    console.log("Prediciton Started");
+
     setProgress(0);
     setPredictions([]);
 
@@ -36,7 +38,7 @@ export async function predictStockData(setProgress, setPredictions, setTrainingS
         normalizedNASDAQ[normalizedNASDAQ.length - seqLength + idx]
     ]);
 
-    let nextNDayPrices = await predictNextNDays(model, lastSequence, minOpen, maxOpen, minClose, maxClose, minVol, maxVol, minHigh, maxHigh, minLow, maxLow, minMarket, maxMarket, minNASDAQ, maxNASDAQ, 10);
+    let nextNDayPrices = await predictNextNDays(model, lastSequence, minOpen, maxOpen, minClose, maxClose, minVol, maxVol, minHigh, maxHigh, minLow, maxLow, minMarket, maxMarket, minNASDAQ, maxNASDAQ, predictionTimeline);
 
     console.log(nextNDayPrices);
 

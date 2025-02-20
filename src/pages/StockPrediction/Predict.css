@@ -397,3 +397,8 @@ body {
   background: #f0f0f0;
   height: 100vh;
 }
+
+/*Prediction Chart*/
+.recharts-responsive-container {
+  margin-top: 20px;
+}

@@ -5,6 +5,7 @@ import { calculateBeta, calculateVolatility, calculateRSI } from "../../helperFu
 import DropdownFromCSV from "../../components/dropdownFromCSV.js";
 import { predictStockData } from "../../helperFunctions/predictionHelperFunctions.js";
 import { fetchIndexData, fetchStockData } from "../../helperFunctions/fetchingHelperFunctions.js";
+import DualLineChart from "../../components/DualLineChart.js";
 
 const MARKET_INDEX = "NSEI.INDX"; // Market benchmark for Beta calculation
 const NASDAQ_INDEX = "NDAQ"; //Market index for NASDAQ
@@ -12,6 +13,7 @@ const NASDAQ_INDEX = "NDAQ"; //Market index for NASDAQ
 const Predict = () => {
     const [symbol, setSymbol] = useState("");
     const [historicalData, setHistoricalData] = useState([]);
+    const [reversedHistoricalData, setReversedHistoricalData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [timeRange, setTimeRange] = useState("3months");
@@ -27,6 +29,8 @@ const Predict = () => {
     const [predictions, setPredictions] = useState([]);
 
     const [NASDAQ, setNASDAQ] = useState([]);
+
+    const predictionTimeline = 30;
 
     const getStartDate = () => {
         const today = new Date();
@@ -68,15 +72,18 @@ const Predict = () => {
     const getToDate = () => {
         let toDate = new Date();
         const todaysDate = new Date();
-        toDate.setDate(todaysDate.getDate() - 10);
+        toDate.setDate(todaysDate.getDate());
 
         return toDate.toISOString().split("T")[0];
     }
 
     useEffect(() => {
         if (symbol != "") {
+            //stock data
             fetchStockData(setLoading, setError, symbol, getStartDate(), getToDate(), setHistoricalData);
+            //nse data
             fetchIndexData(MARKET_INDEX, getStartDate(), getToDate(), setError, setMarketData);
+            //nasdaq data
             fetchIndexData(NASDAQ_INDEX, getStartDate(), getToDate(), setError, setNASDAQ);
         }
     }, [symbol, timeRange])
@@ -88,7 +95,10 @@ const Predict = () => {
             setRSI(calculateRSI(historicalData));
 
             //predict stock data
-            predictStockData(setProgress, setPredictions, setTrainingStatus, historicalData, marketData, NASDAQ);
+            predictStockData(setProgress, setPredictions, setTrainingStatus, historicalData.slice(0, -predictionTimeline), marketData.slice(0, -predictionTimeline), NASDAQ.slice(0, -predictionTimeline), predictionTimeline);
+
+            //set reversed historical data
+            setReversedHistoricalData([...historicalData].reverse());
         }
     }, [marketData, historicalData]); // Runs when `marketData` OR `historicalData` updates
 
@@ -156,6 +166,13 @@ const Predict = () => {
                         </tbody>
                     </table>
                 )}
+
+                {/*PREDICTION ACCURACY*/}
+                {predictions.length > 0 && (
+                    <div className="prediction-accuracy">
+                        <h3>Prediction Accuracy</h3>
+                        <DualLineChart dataA={reversedHistoricalData.slice(-predictionTimeline)} dataB={predictions} />
+                    </div>)}
 
                 {/* KEY METRICS SECTION */}
                 {marketData.length > 0 && (
