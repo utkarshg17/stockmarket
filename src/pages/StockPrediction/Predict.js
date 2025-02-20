@@ -1,19 +1,19 @@
-import React, { useState, useEffect, useCallback } from "react";
-import axios from "axios";
+import React, { useState, useEffect } from "react";
 import "./Predict.css";
 import StockChart from "../../components/StockChart.js";
 import { calculateBeta, calculateVolatility, calculateRSI } from "../../helperFunctions/metricsHelperFunctions.js";
 import DropdownFromCSV from "../../components/dropdownFromCSV.js";
 import { predictStockData } from "../../helperFunctions/predictionHelperFunctions.js";
+import { fetchIndexData, fetchStockData } from "../../helperFunctions/fetchingHelperFunctions.js";
+import DualLineChart from "../../components/DualLineChart.js";
 
-const API_KEY = "9630ecf1d09165b08ad3621ec7efb550";
-const BASE_URL = "http://api.marketstack.com/v1/eod";
 const MARKET_INDEX = "NSEI.INDX"; // Market benchmark for Beta calculation
 const NASDAQ_INDEX = "NDAQ"; //Market index for NASDAQ
 
 const Predict = () => {
     const [symbol, setSymbol] = useState("");
     const [historicalData, setHistoricalData] = useState([]);
+    const [reversedHistoricalData, setReversedHistoricalData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [timeRange, setTimeRange] = useState("3months");
@@ -29,6 +29,8 @@ const Predict = () => {
     const [predictions, setPredictions] = useState([]);
 
     const [NASDAQ, setNASDAQ] = useState([]);
+
+    const predictionTimeline = 30;
 
     const getStartDate = () => {
         const today = new Date();
@@ -70,16 +72,19 @@ const Predict = () => {
     const getToDate = () => {
         let toDate = new Date();
         const todaysDate = new Date();
-        toDate.setDate(todaysDate.getDate() - 10);
+        toDate.setDate(todaysDate.getDate());
 
         return toDate.toISOString().split("T")[0];
     }
 
     useEffect(() => {
         if (symbol != "") {
-            fetchHistoricalData();
-            fetchMarketData();
-            fetchNASDAQData();
+            //stock data
+            fetchStockData(setLoading, setError, symbol, getStartDate(), getToDate(), setHistoricalData);
+            //nse data
+            fetchIndexData(MARKET_INDEX, getStartDate(), getToDate(), setError, setMarketData);
+            //nasdaq data
+            fetchIndexData(NASDAQ_INDEX, getStartDate(), getToDate(), setError, setNASDAQ);
         }
     }, [symbol, timeRange])
 
@@ -90,91 +95,12 @@ const Predict = () => {
             setRSI(calculateRSI(historicalData));
 
             //predict stock data
-            predictStockData(setProgress, setPredictions, setTrainingStatus, historicalData, marketData, NASDAQ);
+            predictStockData(setProgress, setPredictions, setTrainingStatus, historicalData.slice(0, -predictionTimeline), marketData.slice(0, -predictionTimeline), NASDAQ.slice(0, -predictionTimeline), predictionTimeline);
+
+            //set reversed historical data
+            setReversedHistoricalData([...historicalData].reverse());
         }
     }, [marketData, historicalData]); // Runs when `marketData` OR `historicalData` updates
-
-    //fetch historical data for stock
-    const fetchHistoricalData = async () => {
-        if (!symbol) return alert("Enter a stock symbol!");
-        setLoading(true);
-        setError(null);
-
-        try {
-            const response = await axios.get(BASE_URL, {
-                params: {
-                    access_key: API_KEY,
-                    symbols: `${symbol}`,
-                    date_from: getStartDate(),
-                    date_to: getToDate(),
-                    limit: 2000
-                },
-            });
-
-            if (!response.data || !response.data.data || response.data.data.length === 0) {
-                setError("No data found. Please try another stock.");
-                setLoading(false);
-                return;
-            }
-
-            setHistoricalData(response.data.data.slice(0, 2000)); // Limit to last 10 records
-        } catch (err) {
-            setError("Failed to fetch historical data. Try again.");
-            console.error(err);
-        }
-
-        setLoading(false);
-    };
-
-    // Fetch Market Index Data
-    const fetchMarketData = async () => {
-        try {
-            const response = await axios.get(BASE_URL, {
-                params: {
-                    access_key: API_KEY,
-                    symbols: `${MARKET_INDEX}`, // Fetch NIFTY 50 Data
-                    date_from: getStartDate(),
-                    date_to: getToDate(),
-                    limit: 2000
-                },
-            });
-
-            if (!response.data || !response.data.data || response.data.data.length === 0) {
-                setError("No market data found.");
-                return;
-            }
-
-            setMarketData(response.data.data.slice(0, 2000)); // Oldest data first
-        } catch (err) {
-            setError("Failed to fetch market data.");
-            console.error(err);
-        }
-    };
-
-    // Fetch NASDAQ Data
-    const fetchNASDAQData = async () => {
-        try {
-            const response = await axios.get(BASE_URL, {
-                params: {
-                    access_key: API_KEY,
-                    symbols: `${NASDAQ_INDEX}`, // Fetch NIFTY 50 Data
-                    date_from: getStartDate(),
-                    date_to: getToDate(),
-                    limit: 2000
-                },
-            });
-
-            if (!response.data || !response.data.data || response.data.data.length === 0) {
-                setError("No market data found.");
-                return;
-            }
-
-            setNASDAQ(response.data.data.slice(0, 2000)); // Oldest data first
-        } catch (err) {
-            setError("Failed to fetch market data.");
-            console.error(err);
-        }
-    };
 
     return (
         <div className="main-container">
@@ -240,6 +166,13 @@ const Predict = () => {
                         </tbody>
                     </table>
                 )}
+
+                {/*PREDICTION ACCURACY*/}
+                {predictions.length > 0 && (
+                    <div className="prediction-accuracy">
+                        <h3>Prediction Accuracy</h3>
+                        <DualLineChart dataA={reversedHistoricalData.slice(-predictionTimeline)} dataB={predictions} />
+                    </div>)}
 
                 {/* KEY METRICS SECTION */}
                 {marketData.length > 0 && (
