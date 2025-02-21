@@ -2,6 +2,7 @@
 
 export async function predictStockData(setProgress, setPredictions, setTrainingStatus, historicalData, marketData, nasdaqData, predictionTimeline) {
     console.log("Prediciton Started");
+    console.log(historicalData);
 
     setProgress(0);
     setPredictions([]);
@@ -39,8 +40,6 @@ export async function predictStockData(setProgress, setPredictions, setTrainingS
     ]);
 
     let nextNDayPrices = await predictNextNDays(model, lastSequence, minOpen, maxOpen, minClose, maxClose, minVol, maxVol, minHigh, maxHigh, minLow, maxLow, minMarket, maxMarket, minNASDAQ, maxNASDAQ, predictionTimeline);
-
-    console.log(nextNDayPrices);
 
     setPredictions(nextNDayPrices);
 }
@@ -107,16 +106,14 @@ function createSequences(openPrices, closePrices, volumes, highPrices, lowPrices
 async function trainModel(setProgress, setTrainingStatus, inputs, labels) {
     const model = tf.sequential();
 
-    model.add(tf.layers.lstm({
-        units: 50, returnSequences: false, inputShape: [inputs.shape[1], 7]  // Updated to use 5 features
-    }));
-
+    model.add(tf.layers.lstm({ units: 64, returnSequences: true, inputShape: [inputs.shape[1], 7] }));
+    model.add(tf.layers.dropout({ rate: 0.2 }));
+    model.add(tf.layers.lstm({ units: 32, returnSequences: false }));
+    model.add(tf.layers.dropout({ rate: 0.2 }));
+    model.add(tf.layers.dense({ units: 16, activation: 'relu' }));
     model.add(tf.layers.dense({ units: 1 }));
 
-    model.compile({
-        optimizer: 'adam',
-        loss: 'meanSquaredError'
-    });
+    model.compile({ optimizer: tf.train.adam(0.001), loss: 'meanSquaredError' });
 
     let epochs = 50;
 
@@ -137,19 +134,6 @@ async function trainModel(setProgress, setTrainingStatus, inputs, labels) {
 
     setTrainingStatus("Training Complete!");
     return model;
-}
-
-function extractFeatureWeights(model) {
-    let lstmWeights = model.layers[0].getWeights()[0];  // LSTM weight matrix
-    let weightsArray = lstmWeights.arraySync();  // Convert to JS array
-
-    let featureImportance = weightsArray.map((weights, index) => ({
-        feature: `Feature_${index}`,  // Feature index
-        importance: Math.abs(weights.reduce((sum, w) => sum + Math.abs(w), 0))  // Sum of absolute weights
-    }));
-
-    console.log("Feature Importance based on Weights:", featureImportance);
-    return featureImportance;
 }
 
 async function predictNextPrice(model, lastSequence, minClose, maxClose) {
@@ -183,4 +167,17 @@ async function predictNextNDays(model, lastSequence, minOpen, maxOpen, minClose,
     }
 
     return futurePredictions;
+}
+
+function extractFeatureWeights(model) {
+    let lstmWeights = model.layers[0].getWeights()[0];  // LSTM weight matrix
+    let weightsArray = lstmWeights.arraySync();  // Convert to JS array
+
+    let featureImportance = weightsArray.map((weights, index) => ({
+        feature: `Feature_${index}`,  // Feature index
+        importance: Math.abs(weights.reduce((sum, w) => sum + Math.abs(w), 0))  // Sum of absolute weights
+    }));
+
+    console.log("Feature Importance based on Weights:", featureImportance);
+    return featureImportance;
 }
