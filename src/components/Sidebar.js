@@ -24,6 +24,7 @@ const Sidebar = () => {
                     <li><Link to="/stockData" onClick={toggleSidebar}>Stock Data</Link></li>
                     <li><Link to="/stockCorrelation" onClick={toggleSidebar}>Stock Correlation</Link></li>
                     <li><Link to="/stockPrediction" onClick={toggleSidebar}>Stock Prediction</Link></li>
+                    <li><Link to="/efficientFrontier" onClick={toggleSidebar}>Efficient Frontier</Link></li>
                 </ul>
             </div>
 

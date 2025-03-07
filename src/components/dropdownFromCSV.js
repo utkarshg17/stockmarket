@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Papa from "papaparse";
 
-const DropdownFromCSV = ({ csvFile, dropdownName }) => {
+const DropdownFromCSV = ({ csvFile, dropdownName, value, onChange }) => {
     const [options, setOptions] = useState([]);
 
     useEffect(() => {
@@ -23,7 +23,7 @@ const DropdownFromCSV = ({ csvFile, dropdownName }) => {
     }, [csvFile]);
 
     return (
-        <select name={dropdownName}>
+        <select name={dropdownName} value={value} onChange={onChange}>
             <option value="">Select an option</option>
             {options.map((option, index) => (
                 <option key={index} value={option}>
