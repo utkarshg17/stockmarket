@@ -4,6 +4,7 @@ import Sidebar from "./components/Sidebar";
 import StockData from "./pages/StockData/StockData";
 import StockCorrelation from "./pages/StockCorrelation/StockCorrelation";
 import Predict from "./pages/StockPrediction/Predict";
+import EfficientFrontier from "./pages/EfficientFrontier/EfficientFrontier";
 
 const App = () => {
     return (
@@ -14,6 +15,7 @@ const App = () => {
                     <Route path="/stockData" element={<StockData />} />
                     <Route path="/stockCorrelation" element={<StockCorrelation />} />
                     <Route path="/stockPrediction" element={<Predict />} />
+                    <Route path="/efficientFrontier" element={<EfficientFrontier />} />
                 </Routes>
             </div>
         </Router>

@@ -165,3 +165,21 @@ export const calculateCorrelationReturns = (stockData1, stockData2) => {
 
     return ([returns1, returns2])
 };
+
+export function calculateRMSE(historicalData, predictions, predictionTimeline, setRMSE) {
+    //clean up historical data
+    let reveresedHistoricalData = [...historicalData].reverse();
+    let slicedHistoricalData = reveresedHistoricalData.slice(-predictionTimeline);
+    let historicalCloses = slicedHistoricalData.map(d => d.close);
+
+    //finding square sum
+    let length = historicalCloses.length;
+    let sqSum = 0;
+    for (let i = 0; i < length; i++) {
+        sqSum = sqSum + Math.pow(historicalCloses[i] - predictions[i], 2);
+    }
+
+    //return RMSE
+    setRMSE((Math.sqrt(sqSum / length)).toFixed(2));
+
+}

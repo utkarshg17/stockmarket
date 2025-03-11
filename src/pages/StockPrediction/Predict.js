@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import "./Predict.css";
 import StockChart from "../../components/StockChart.js";
-import { calculateBeta, calculateVolatility, calculateRSI } from "../../helperFunctions/metricsHelperFunctions.js";
+import { calculateBeta, calculateVolatility, calculateRSI, calculateRMSE } from "../../helperFunctions/metricsHelperFunctions.js";
 import DropdownFromCSV from "../../components/dropdownFromCSV.js";
 import { predictStockData } from "../../helperFunctions/predictionHelperFunctions.js";
 import { fetchIndexData, fetchStockData } from "../../helperFunctions/fetchingHelperFunctions.js";
@@ -22,6 +22,7 @@ const Predict = () => {
     const [beta, setBeta] = useState(null);
     const [volatility, setVolatility] = useState(null);
     const [RSI, setRSI] = useState(null)
+    const [RMSE, setRMSE] = useState(null);
 
     const [progress, setProgress] = useState(0);
     const [trainingStatus, setTrainingStatus] = useState("");
@@ -30,7 +31,7 @@ const Predict = () => {
 
     const [NASDAQ, setNASDAQ] = useState([]);
 
-    const predictionTimeline = 30;
+    const predictionTimeline = 10;
 
     const getStartDate = () => {
         const today = new Date();
@@ -102,6 +103,12 @@ const Predict = () => {
         }
     }, [marketData, historicalData]); // Runs when `marketData` OR `historicalData` updates
 
+    useEffect(() => {
+        if (predictions.length > 0) {
+            calculateRMSE(historicalData, predictions, predictionTimeline, setRMSE);
+        }
+    }, [predictions])
+
     return (
         <div className="main-container">
             {/* LEFT PANE: Input Panel */}
@@ -172,7 +179,9 @@ const Predict = () => {
                     <div className="prediction-accuracy">
                         <h3>Prediction Accuracy</h3>
                         <DualLineChart dataA={reversedHistoricalData.slice(-predictionTimeline)} dataB={predictions} />
-                    </div>)}
+                        <p>RMSE: {RMSE}</p>
+                    </div>
+                )}
 
                 {/* KEY METRICS SECTION */}
                 {marketData.length > 0 && (
