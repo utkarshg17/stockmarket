@@ -142,8 +142,8 @@ const EfficientFrontier = () => {
                     <>
                         <h2>Monte Carlo Simulation</h2>
                         <XYChart xData={risks} xLabel="Risk" yData={returns} yLabel="Returns (%)" />
-                        <h2>Most Efficient Portfolio</h2>
-                        <p>{`Daily Return: ${minVariancePortfolio["return"].toFixed(2)} %`}</p>
+                        <h2>Minimum Risk Portfolio</h2>
+                        <p>{`Average Daily Return: ${minVariancePortfolio["return"].toFixed(2)} %`}</p>
                         <p>{`Risk: ${minVariancePortfolio["risk"].toFixed(2)}`}</p>
                         <table className="stock-table">
                             <thead>
