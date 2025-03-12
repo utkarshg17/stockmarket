@@ -125,6 +125,29 @@ function findMinVariancePortfolio(portfolios) {
     return portfolios.reduce((min, portfolio) => (portfolio.risk < min.risk ? portfolio : min), portfolios[0]);
 }
 
+export function findEfficientPortfolio(portfolios, maxRisk) {
+    if (!portfolios || portfolios.length === 0) {
+        console.error("No portfolios available. Run the analysis first.");
+        return;
+    }
+
+    // Filter portfolios that have risk <= maxRisk
+    const validPortfolios = portfolios.filter(p => p.risk <= maxRisk);
+
+    if (validPortfolios.length === 0) {
+        console.log("No portfolio found within the given risk level.");
+        return;
+    }
+
+    // Find the portfolio with the closest risk level to maxRiskValue (but ≤ maxRisk)
+    const bestPortfolio = validPortfolios.reduce((closest, portfolio) =>
+        Math.abs(portfolio.risk - maxRisk) < Math.abs(closest.risk - maxRisk) ? portfolio : closest,
+        validPortfolios[0]
+    );
+
+    return bestPortfolio;
+}
+
 export function runEfficientFrontierAnalysis(stockData) {
     let cleanData = cleanStockData(stockData);
     let returnsData = calculateReturns(cleanData);
@@ -135,7 +158,6 @@ export function runEfficientFrontierAnalysis(stockData) {
 
     let { portfolios, bestPortfolio } = generateRandomPortfolio(symbols, meanReturns, covarianceMatrix);
     let minVariancePortfolio = findMinVariancePortfolio(portfolios);
-    console.log(minVariancePortfolio);
 
     return [portfolios, minVariancePortfolio];
 }

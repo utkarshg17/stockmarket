@@ -1,18 +1,12 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import "./EfficientFrontier.css";
-import StockChart from "../../components/StockChart.js";
-import { calculateBeta, calculateVolatility, calculateRSI } from "../../helperFunctions/metricsHelperFunctions.js";
 import DropdownFromCSV from "../../components/dropdownFromCSV.js";
 import { fetchIndexData, fetchStockData, fetchMultipleStocks } from "../../helperFunctions/fetchingHelperFunctions.js";
-import { runEfficientFrontierAnalysis } from "../../helperFunctions/efficientFrontierHelperFunctions.js";
+import { runEfficientFrontierAnalysis, findEfficientPortfolio } from "../../helperFunctions/efficientFrontierHelperFunctions.js";
 import XYChart from "../../components/XYChart.js";
-
-
-const MARKET_INDEX = "NSEI.INDX"; // Market benchmark for Beta calculation
+import EfficientFrontierChart from "../../components/EfficientFrontierChart.js";
 
 const EfficientFrontier = () => {
-    const [historicalData, setHistoricalData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [timeRange, setTimeRange] = useState("1year");
@@ -23,6 +17,8 @@ const EfficientFrontier = () => {
     const [risks, setRisks] = useState([]);
     const [returns, setReturns] = useState([]);
     const [minVariancePortfolio, setMinVariancePortfolio] = useState({});
+    const [efficientPortfolio, setEfficientPortfolio] = useState({});
+    const [riskTolerance, setRiskTolerance] = useState(0);
 
     const addStock = () => {
         setStocks([...stocks, ""]); // Add an empty stock (to be selected)
@@ -96,6 +92,16 @@ const EfficientFrontier = () => {
         }
     }, [portfolios])
 
+    function findRiskAppropiratePortfolio() {
+        //get portfolio
+        let riskAppropriatePortfolio = findEfficientPortfolio(portfolios, riskTolerance);
+        setEfficientPortfolio(riskAppropriatePortfolio);
+    }
+
+    useEffect(() => {
+        console.log(Object.keys(efficientPortfolio));
+    }, [efficientPortfolio])
+
     return (
         <div className="main-container">
             {/* LEFT PANE: Input Panel */}
@@ -142,6 +148,7 @@ const EfficientFrontier = () => {
                     <>
                         <h2>Monte Carlo Simulation</h2>
                         <XYChart xData={risks} xLabel="Risk" yData={returns} yLabel="Returns (%)" />
+
                         <h2>Minimum Risk Portfolio</h2>
                         <p>{`Average Daily Return: ${minVariancePortfolio["return"].toFixed(2)} %`}</p>
                         <p>{`Risk: ${minVariancePortfolio["risk"].toFixed(2)}`}</p>
@@ -157,6 +164,43 @@ const EfficientFrontier = () => {
                                     <tr key={index}>
                                         <td>{stocks[index]}</td>
                                         <td>{`${(minVariancePortfolio["weights"][index] * 100).toFixed(2)} %`}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+
+                        <h2>Risk Tolerance</h2>
+                        <div className="risk-tolerance-container">
+                            <input
+                                id="riskToleranceInput"
+                                type="number"
+                                placeholder="Enter max risk"
+                                value={riskTolerance}
+                                onChange={(e) => setRiskTolerance(e.target.value)}
+                                className="styled-input"
+                            />
+                            <button onClick={() => findRiskAppropiratePortfolio()} className="styled-button">Find Best Portfolio</button>
+                        </div>
+                    </>
+                )}
+
+                {Object.keys(efficientPortfolio).length > 0 && (
+                    <>
+                        <h3>Risk Appropriate Portfolio</h3>
+                        <p>{`Average Daily Return: ${efficientPortfolio["return"].toFixed(2)} %`}</p>
+                        <p>{`Risk: ${efficientPortfolio["risk"].toFixed(2)}`}</p>
+                        <table className="stock-table">
+                            <thead>
+                                <tr>
+                                    <th>Stock</th>
+                                    <th>Weight</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {stocks.map((item, index) => (
+                                    <tr key={index}>
+                                        <td>{stocks[index]}</td>
+                                        <td>{`${(efficientPortfolio["weights"][index] * 100).toFixed(2)} %`}</td>
                                     </tr>
                                 ))}
                             </tbody>
